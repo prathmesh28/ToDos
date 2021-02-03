@@ -29,7 +29,16 @@ console.log(this.state.isLoading)
  Firebase.auth().signInWithPopup(provider).then(function(result) {
    // This gives you a GitHub Access Token.
    var token = result.credential.accessToken;
-   console.log('token',token)
+   console.log('token check this:',token)
+   
+
+   firebase.database().ref('/Users/' + result.user.uid ).set({
+    token:token
+})
+.then((doc) => { 
+    console.log(doc)
+
+})
    // The signed-in user info.
    var user = result.user;
    console.log('user',user)
