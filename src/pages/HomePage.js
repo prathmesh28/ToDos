@@ -3,10 +3,9 @@ import firebase from '../firebase'
 import FlatList from 'flatlist-react';
 import _uniqueId from 'lodash/uniqueId';
 import { withRouter } from 'react-router-dom'
-import { Container,Accordion, Row, Col, Button, Card, Modal,Form } from 'react-bootstrap'
+import { Container,Accordion, Row, Col, Button, Card, Modal,Form,Spinner } from 'react-bootstrap'
 import './TodoApp.css'
 const { Octokit } = require("@octokit/core");
-
 let id
 const db = firebase.database()
 const auth = firebase.auth()
@@ -19,15 +18,17 @@ class HomePage extends React.Component {
         Dsort:false,
         export:false,
         exportData:[],
-        token:''
+        token:'',
+        loading:false,
+        exportUrl:''
     }
 
     async componentDidMount() {
         id = auth.currentUser.uid
         
-
         try { 
-           
+            db.ref("Users/"+ id ).on("value", snapshot => { this.setState({token:snapshot.val().token}) })
+
             db.ref("Users/"+ id +'/projects/').on("value", snapshot => {
                 let data = []
                 if(snapshot.val()!==undefined || snapshot.val()!==null){
@@ -42,6 +43,7 @@ class HomePage extends React.Component {
         }
 
     }
+   
 
     addProject = () => {
         
@@ -62,51 +64,74 @@ class HomePage extends React.Component {
                 this.setState({newProject:false, ProjectName:''})
                 this.props.history.push(`/todos/${proId}`)
             })
-
         }
     } 
 
     deleteProject = async(pId) => {
         var r = await window.confirm("Confirm delete?");
-        if (r === true) {
+        if (r === true) { 
             let userRef = db.ref('/Users/' + id +'/projects/' + pId  )
             userRef.remove()
         } 
+
     }
 
     exportProject = async() => {
-        // this.setState({ProjectName:this.state.ProjectName+".md"})
-        let token
-        await db.ref("Users/"+ id ).on("value", snapshot => {token=snapshot.val().token })
+        this.setState({loading:true})
         const octokit = new Octokit({
-            auth: token,
+            auth: this.state.token,
         })
-        // console.log(this.state.ProjectName)
 
-//                  const { headers } = await octokit.request('/')
-
-//  console.log(`Scopes: ${headers['x-oauth-scopes']}`)
           let ProjectName = this.state.ProjectName+".md"
+
+          let pending = this.state.exportData
+            .filter(itm => !itm.status)
+            .map((itm)=>{
+                       return `- [ ] ${itm.todo}`
+        
+               }).join("\n")
+
+        let completed = this.state.exportData
+        .filter(itm => itm.status)
+        .map((itm)=>{
+                    return `- [x] ${itm.todo}`
+    
+            }).join("\n")
+
+        let pendingName = this.state.exportData.filter(itm => !itm.status).length===0?'No Pending Todos':'Pending'
+
+        let completedName = this.state.exportData.filter(itm => itm.status).length===0?'No Completed Todos':'Completed'
+
           let tempData = {
-            ProjectName: {
+            [ProjectName]: {
 content: `# ${ProjectName} <br />
-**summary:** 3/4
-- [x] Finish my changes
-- [ ] Push my commits to GitHub
-- [ ] Open a pull request
-                `,
+**Summary:**  ${this.state.exportData.filter(itm => itm.status).length}/${this.state.exportData.length} todos completed.
+## ${pendingName}
+${pending}
+
+## ${completedName}
+${completed}
+`,
               }
           }
-          console.log(tempData)
           
-        //   octokit
-        //     .request("POST /gists", {
-        //       files:  tempData ,
-        //     })
-        //     .then(console.log, console.log);
+          octokit
+            .request("POST /gists", {
+              files:  tempData ,
+            })
+            .then(async(op)=>{
+                var r = await window.confirm("Exported to your private gists:"+ op.data.html_url)
+                if (r === true) {
+                    window.open(op.data.html_url)
+                } 
+            });
+
+            this.setState({loading:false,export:false})
     }
 
     renderPerson = (itm, idx) => {
+        let allTodos = itm.data.todos
+        
         return (
             <Accordion className="cursor" key={idx}>
                 <Card className="shadow-sm ">
@@ -119,14 +144,16 @@ content: `# ${ProjectName} <br />
             
                     <Accordion.Collapse eventKey="0">
                         <Card.Body className="row" >
-                            <Col onClick={()=> this.props.history.push(`/todos/${itm.data.pId}`)}>{itm.data.todos.length===1?itm.data.todos.length+' todo.':itm.data.todos.length+' todos.'}  &#9999;  </Col>
+                            <Col onClick={()=> this.props.history.push(`/todos/${itm.data.pId}`)}>
+                                {allTodos?(allTodos.length===1?allTodos.length+' todo.':allTodos.length+' todos.'):'No todos.'}
+                                &#9999;  </Col>
                             <Button variant="outline-light" 
                                 style={{backgroundColor:"#ffdce0", color:"#24292e"}} 
                                 onClick={()=>this.deleteProject(itm.data.pId)}>Delete
                             </Button> &nbsp;
                             <Button variant="outline-light" 
                                 style={{backgroundColor:"#dcffe4", color:"#24292e"}}
-                                onClick={()=>this.setState({export:true,ProjectName:itm.data.Pname,exportData:itm.data.todos})}>Export</Button>
+                                onClick={()=>this.setState({export:true,ProjectName:itm.data.Pname,exportData:allTodos})}>Export</Button>
                         </Card.Body>
                     </Accordion.Collapse>
                 </Card>
@@ -182,7 +209,7 @@ content: `# ${ProjectName} <br />
                                 <Col>
                                     <span style={{fontSize:20,fontStyle:'italic',position:'absolute',bottom:0,right:0}}>Sortby: &nbsp;
                                     <span onClick={()=>this.setState({Dsort:false})} className="cursor">Name</span> | 
-                                    <span onClick={()=>this.setState({Dsort:true})}  className="cursor">Date</span>&nbsp;</span>
+                                    <span onClick={()=>this.setState({Dsort:true})}  className="cursor"> Date</span>&nbsp;</span>
                                 </Col>
                             </Row>
                             <Row>
@@ -198,9 +225,11 @@ content: `# ${ProjectName} <br />
                                 />
                             </Row>
 
+
                             {/* Export popup */}
                             <Modal show={this.state.export} onHide={()=>this.setState({export:false})}  backdrop="static">
-                            <Modal.Header closeButton>
+
+                            <Modal.Header closeButton={this.state.loading}>
                             <Modal.Title>Export as Gist</Modal.Title>
                             </Modal.Header>
                             <Modal.Body>
@@ -212,24 +241,20 @@ content: `# ${ProjectName} <br />
                                 {this.state.exportData.length===0?<b>No todos to display.</b>:<>
                                 <b>Summary:</b> {this.state.exportData.filter(itm => itm.status).length}/{this.state.exportData.length} todos completed.
                                 <br/>
-                                <h4>Pending</h4>
+
+                                {this.state.exportData.filter(itm => !itm.status).length===0?<h4>No Pending Todos</h4>:<h4>Pending</h4>}
+
                                 {
                                     this.state.exportData
                                     .filter(itm => !itm.status)
-                                    .map((itm)=>{
-                                               return <><input type="checkbox" checked={false}/> {itm.todo}<br/></>
-
-                                       })
+                                    .map((itm)=> <><input key={itm.todoId} type="checkbox" checked={false} disabled/> {itm.todo}<br/></>)
                                 }
                                 <br/>
-                                <h4>completed</h4>
+                                {this.state.exportData.filter(itm => itm.status).length===0?<h4>No Completed Todos</h4>:<h4>Completed</h4>}
                                  {
                                        this.state.exportData
                                        .filter(itm => itm.status)
-                                       .map((itm)=>{
-                                                  return <><input type="checkbox" checked={true}/> {itm.todo}<br/></>
-   
-                                          })
+                                       .map((itm)=> <><input key={itm.todoId} type="checkbox" checked={true} disabled/> {itm.todo}<br/></>)
                                 }
                                 </>}
                             </Card.Body>
@@ -238,12 +263,14 @@ content: `# ${ProjectName} <br />
                                 
                             </Modal.Body>
                             <Modal.Footer>
-                            <Button variant="secondary" onClick={()=>this.setState({export:false})}>
-                                Close
-                            </Button>
-                            <Button variant="primary" onClick={()=>this.exportProject()}>
-                                Save Changes
-                            </Button>
+                                {this.state.loading?<Spinner animation="border"  />:<>
+                                    <Button variant="secondary" onClick={()=>this.setState({export:false})}>
+                                        Close
+                                    </Button>
+                                    {this.state.exportData.length===0?null: <Button variant="primary" onClick={()=>this.exportProject()}>
+                                        Export
+                                    </Button>}</>
+                                }
                             </Modal.Footer>
                         </Modal>
                         </Col>
