@@ -171,7 +171,10 @@ class Todos extends React.Component {
                         </Col>
                         <Col md={8} className='my-auto'>
                             <span style={{fontSize:50,color:'#36454F',}} >{this.state.ProjectName} </span>
-                            <span onClick={()=>this.setState({edit:true,addTodo:this.state.ProjectName,editName:'Project name'})} >&#9999;</span>
+                            <span className="cursor" onClick={()=>this.setState({edit:true,addTodo:this.state.ProjectName,editName:'Project name'})} >
+                                &#9999;
+                                <small>(edit)</small>
+                            </span>
                         </Col>
                     </Row>
                     <Row style={{padding:40}}>
