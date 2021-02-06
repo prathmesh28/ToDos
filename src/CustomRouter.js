@@ -13,7 +13,7 @@ import Signin from "./pages/Signin";
 import useUser from "./_hooks/useUser";
 
 export default function CustomRouter() {
-  // useUser is a custom hook (src/_hooks/useUser.tsx)
+
   const { isLoggedIn, loaded } = useUser();
 
   return (

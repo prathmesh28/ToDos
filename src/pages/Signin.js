@@ -42,7 +42,7 @@ class Signin extends React.Component {
       <div  className="Home">
       <Container fluid>
       <Row className="d-flex justify-content-center" style={{height:'40vh'}}>
-        <h1 className="my-auto" style={{color:"#0366d6",fontWeight:'bolder'}}>&#128221; Todos App!</h1>
+        <h1 className="my-auto" style={{color:"#0366d6",fontWeight:'bolder'}}>&#128221; ToDo App!</h1>
       </Row>
       <Row className="d-flex justify-content-center">
         <Card
