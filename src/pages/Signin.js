@@ -12,30 +12,22 @@ class Signin extends React.Component {
       isSignedIn: false
     }
   }
-
   onLogIn = () => {
     this.setState({ isLoading:true })
-
     var provider = new firebase.auth.GithubAuthProvider();
     provider.addScope('gist');
     Firebase.auth().signInWithPopup(provider).then(function(result) {
       var token = result.credential.accessToken;
-      
       Firebase.database().ref('/Users/' + result.user.uid ).update({
         token:token
       })
-      .then((doc) => { 
-        // console.log(doc)
+      .then(() => { 
       })
-      // var user = result.user;
     }).catch(function(error) {
       var errorCode = error.code;
       var errorMessage = error.message;
-      // var email = error.email;
-      // var credential = error.credential;
       if (errorCode === 'auth/account-exists-with-different-credential') {
-        alert('You have signed up with a different provider for that email.');
-        // Handle linking here if your app allows it.
+        alert('You have signed up with a different provider for that email.')
       } else {
         alert(errorMessage)
       }
